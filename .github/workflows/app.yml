@@ -41,9 +41,13 @@ jobs:
 
       - name: Upload artifact to S3
         run: |
-          JAR=$(ls -1 build/libs/*.jar | head -n1)
-          aws s3 cp "$JAR" "s3://${{ env.ARTIFACT_BUCKET }}/app-latest.jar" --region ${{ env.AWS_REGION }}
-
+          echo "Listing JARs in build/libs/"
+          ls -lh build/libs/
+          JAR=$(ls build/libs/*SNAPSHOT.jar | grep -v 'plain' | head -n1)
+          echo "Uploading $JAR to S3..."
+          aws s3 cp "$JAR" "s3://${{ env.ARTIFACT_BUCKET }}/app-latest.jar" --region ${{ env.AWS_REGION }} --exact-timestamps
+          echo "Upload complete. Bucket contents:"
+          aws s3 ls "s3://${{ env.ARTIFACT_BUCKET }}/" --region ${{ env.AWS_REGION }}
       - name: Trigger ASG Instance Refresh
         run: |
           aws autoscaling start-instance-refresh \
