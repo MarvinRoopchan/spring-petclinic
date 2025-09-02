@@ -43,14 +43,14 @@ jobs:
         run: |
           echo "Listing JARs in build/libs/"
           ls -lh build/libs/
-          JAR=$(ls build/libs/*SNAPSHOT.jar | grep -v 'plain' | head -n1)
+          JAR=$(ls build/libs/*.jar | grep -v 'plain' | sort | head -n1)
           echo "Uploading $JAR to S3..."
-          aws s3 cp "$JAR" "s3://${{ env.ARTIFACT_BUCKET }}/app-latest.jar" --region ${{ env.AWS_REGION }} --exact-timestamps
+          aws s3 cp "$JAR" "s3://${{ env.ARTIFACT_BUCKET }}/app-latest.jar" --region ${{ env.AWS_REGION }}
           echo "Upload complete. Bucket contents:"
           aws s3 ls "s3://${{ env.ARTIFACT_BUCKET }}/" --region ${{ env.AWS_REGION }}
+
       - name: Trigger ASG Instance Refresh
         run: |
           aws autoscaling start-instance-refresh \
             --auto-scaling-group-name "${{ env.ASG_NAME }}" \
             --preferences '{"MinHealthyPercentage": 50, "InstanceWarmup": 120}'
-
