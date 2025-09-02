@@ -1,0 +1,52 @@
+name: PetClinic CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+  workflow_dispatch:
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      AWS_REGION: us-east-1
+      ARTIFACT_BUCKET: marvin-sprinboot-artifact
+      ASG_NAME: petclinic-asg
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Build JAR
+        run: ./gradlew build -x test
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload artifact to S3
+        run: |
+          JAR=$(ls -1 build/libs/*.jar | head -n1)
+          aws s3 cp "$JAR" "s3://${{ env.ARTIFACT_BUCKET }}/app-latest.jar" --region ${{ env.AWS_REGION }}
+
+      - name: Trigger ASG Instance Refresh
+        run: |
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "${{ env.ASG_NAME }}" \
+            --preferences '{"MinHealthyPercentage": 50, "InstanceWarmup": 120}'
+
